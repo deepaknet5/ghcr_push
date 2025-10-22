@@ -1,0 +1,62 @@
+name: Container Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image tag (optional, e.g., ghcr.io/OWNER/REPO:latest)"
+        required: false
+        default: ""
+  push:
+    paths:
+      - "**"
+      - "Dockerfile"
+      - ".github/workflows/container-build.yml"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+      - "pom.xml"
+      - "go.mod"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: |
+          if [ -n "${{ github.event.inputs.image }}" ]; then
+            echo "IMAGE=${{ github.event.inputs.image }}" >> $GITHUB_ENV
+          else
+            owner="${GITHUB_REPOSITORY%/*}"
+            repo="${GITHUB_REPOSITORY#*/}"
+            echo "IMAGE=ghcr.io/${owner}/${repo}:latest" >> $GITHUB_ENV
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR (optional)
+        if: ${{ secrets.CR_PAT != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Build (and push if CR_PAT is set)
+        uses: docker/build-push-action@v5
+        with:
+          context: "."
+          push: ${{ secrets.CR_PAT != '' }}
+          tags: ${{ env.IMAGE }}
+          file: "./Dockerfile"
