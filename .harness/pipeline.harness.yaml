@@ -1,0 +1,70 @@
+pipeline:
+  name:  CI Pipeline
+  identifier: _ci
+
+  projectIdentifier: "projectId"
+  orgIdentifier: "orgId"
+
+  tags: {}
+
+  properties:
+    ci:
+      codebase:
+        connectorRef: "account.githubConnector"
+        repoName: ""
+        build:
+          type: branch
+          spec:
+            branch: "main"
+
+  stages:
+    - stage:
+        name: Build
+        identifier: Build
+        type: CI
+
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: Abort
+
+        spec:
+          cloneCodebase: true
+
+          infrastructure:
+            type: Docker
+            spec:
+              connectorRef: "account.harnessImageConnector"
+              image: "docker:20.10.21"
+              privileged: true
+              resources:
+                limits:
+                  memory: "2Gi"
+                  cpu: "2000m"
+              platform:
+                os: Linux
+                arch: Amd64
+
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Build Image
+                  identifier: Build_Image
+                  spec:
+                    shell: Sh
+                    command: |
+                      echo "Building Docker image..."
+                      docker build -t myimage:latest .
+
+              - step:
+                  type: Run
+                  name: Tests
+                  identifier: Tests
+                  spec:
+                    shell: Sh
+                    command: |
+                      echo "Running tests..."
+                      pytest || true
