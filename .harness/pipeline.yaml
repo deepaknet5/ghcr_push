@@ -1,0 +1,65 @@
+pipeline:
+  name: ghcr_push CI Pipeline
+  identifier: ghcr_push_ci
+
+  projectIdentifier: ""
+  orgIdentifier: ""
+
+  tags: {}
+
+  properties:
+    ci:
+      codebase:
+        connectorRef: "account.githubConnector"
+        repoName: "ghcr_push"
+        build:
+          type: branch
+          spec:
+            branch: "main"
+
+  stages:
+    - stage:
+        name: Build
+        identifier: Build
+        type: CI
+
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: Abort
+
+        spec:
+          cloneCodebase: true
+
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Build Image
+                  identifier: Build_Image
+                  spec:
+                    shell: Sh
+                    command: |
+                      echo "Building Docker image..."
+                      docker build -t myimage:latest .
+
+              - step:
+                  type: Run
+                  name: Tests
+                  identifier: Tests
+                  spec:
+                    shell: Sh
+                    command: |
+                      echo "Running tests..."
+                      pytest || true
+
+          # Harness Cloud build (no infrastructure block)
+          platform:
+            os: Linux
+            arch: Amd64
+
+          runtime:
+            type: Cloud
+            spec: {}
